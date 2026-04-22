@@ -17,7 +17,10 @@ app = FastAPI(
     title=app_settings.app_name,
     version=app_settings.app_version,
     description=app_settings.app_description,
-    lifespan=life_span
+    lifespan=life_span,
+    docs_url="/api/v1/docs",
+    redoc_url="/api/v1/redoc",
+    openapi_url="/api/v1/openapi.json"
 )
 
 app.include_router(base.router) #base router for root and health check endpoints
