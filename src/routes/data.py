@@ -3,11 +3,13 @@ from fastapi.responses import JSONResponse
 from src.utils.config import get_settings,Settings
 from src.controllers import DataController,ProjectController
 from src.schemas.enums.ResponseEnums import ResponseStatus
+from src.schemas.data import FileUploadRequest,ProcessFileRequest
 import aiofiles
 import os
 import logging
 
 logger = logging.getLogger("uvicorn.error") #get the uvicorn logger to log errors in the same format as uvicorn logs
+
 router = APIRouter(
     prefix="/api/v1/data",
     tags=["data"]
@@ -16,6 +18,8 @@ router = APIRouter(
 @router.post("/upload/{file_id}", summary="Upload a file")
 async def upload_file(file_id: str, file: UploadFile = File(...), 
                       settings: Settings = Depends(get_settings)):
+    
+    request=FileUploadRequest(file_id=file_id, file_name=file.filename)
     # Validate the uploaded file 
     is_valid,message = await DataController(settings).validate_file(file)
     
@@ -25,9 +29,9 @@ async def upload_file(file_id: str, file: UploadFile = File(...),
             content={"status": ResponseStatus.Failed, "message": message}
                             ) 
     # Process the file (e.g., save to disk, database, etc.)
-    file_path_dir,file_path=ProjectController().get_file_path(
-        file_id=file_id,
-        file_name=file.filename or "unknown"
+    file_path_dir,file_path, file_name, file_ext=ProjectController().get_file_path(
+        file_id=request.file_id,
+        file_name=request.file_name or "unknown"
         )
     #create the directory if it doesn't exist
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -55,10 +59,24 @@ async def upload_file(file_id: str, file: UploadFile = File(...),
 
     return JSONResponse(
         status_code=status.HTTP_200_OK, 
-        content={"status": ResponseStatus.SUCCESS, 
-                 "message": ResponseStatus.FILE_UPLOADED_SUCCESSFULLY,
-                 "file_id": file_id,
-                 "filename": file.filename,
-                 "file_dir_path": file_path_dir,
-                 "file_path": file_path}
-                        )        
+            content={
+                    "status": ResponseStatus.SUCCESS, 
+                    "message": ResponseStatus.FILE_UPLOADED_SUCCESSFULLY,
+                    "file_id": file_id,
+                    "filename": file_name,
+                    "original_file_name": file.filename,
+                    "file_ext": file_ext,
+                    "file_dir_path": file_path_dir,
+                    "file_path": file_path
+                    }
+                 )        
+
+
+@router.post("/process/{file_id}", summary="Process an uploaded file")
+async def process_file(
+    file_id: str,
+    process_request: ProcessFileRequest,
+    settings: Settings = Depends(get_settings),
+):
+    file_id = process_request.file_id
+    return file_id
